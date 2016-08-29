@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block body %}
+{% for blog in blogs %}
+<div class="body">
+  <div class="body-title">{{blog.title}}</div>
+  <div class="body-body">{{blog.body}}</div>
+</div>
+{% endfor %}
+{% endblock %}
