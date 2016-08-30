@@ -6,9 +6,24 @@
     <link type="text/css" rel="stylesheet" href="/styles/styles.css" />
   </head>
   <body>
-    <h1>colin's blog</h1>
-    <a href"/post"
+    <table width="100%">
+      <tr>
+        <td><a href="/"><h1>colin's blog</h1></a></td>
+        <td style="text-align: right"><button type="button"><a href="/new_post">new post</a></button></td>
+      </tr>
+    </table>
     {% block content %}
     {% endblock %}
   </body>
+  <footer>
+    <br>
+    <hr>
+    <br>
+    <table width=100%>
+      <tr>
+        <td><a href="/archive">archive</a></td>
+        <td style="text-align: right"><a href="/delete_post">delete post</a></td>
+      </tr>
+    </table>
+  </footer>
 </html>
