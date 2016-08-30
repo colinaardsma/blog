@@ -1,0 +1,15 @@
+{%- block content -%}
+<div class="body">
+  <table width="100%">
+    <tr>
+      <td><div class="body-title">{{blog.title}}</div></td>
+      <td style="text-align: right"><div class="body-created">{{blog.created.strftime('%d.%m.%Y %I:%M%p')}}</div></td>
+    </tr>
+  </table>
+  <table width="100%">
+    <tr>
+      <td><div class="body-body">{{blog.body}}</div></td>
+    </tr>
+  </table>
+</div>
+{% endblock %}

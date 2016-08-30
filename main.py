@@ -52,12 +52,12 @@ class NewPost(Handler):
             self.render_post(title, body, error)
 
 class Archive(Handler):
-    def render_list(self, blogs=""):
+    def render_archive(self, blogs=""):
         blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
         self.render("list.html", blogs=blogs)
 
     def get(self):
-        self.render_list()
+        self.render_archive()
 
 class DeletePost(Handler):
     def render_delete(self, blogs=""):
@@ -67,9 +67,18 @@ class DeletePost(Handler):
     def get(self):
         self.render_delete()
 
+class ViewPostHandler(Handler):
+    def render_view(self, id):
+        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
+        self.render("view.html", blogs=blogs, id=id)
+
+    def get(self, id):
+        self.render_view(id)
+
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/new_post', NewPost),
     ('/archive', Archive),
-    ('/delete_post', DeletePost)
+    ('/delete_post', DeletePost),
+    webapp2.Route('/blog/<id:\d+>', ViewPostHandler)
 ], debug=True)
