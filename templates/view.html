@@ -1,8 +1,6 @@
 {%- extends "layout.html" -%}
 {%- block content -%}
-  <!-- <h1>{{id}}</h1> -->
   {%- for blog in blogs -%}
-    <!-- <h1>{{blog.key().id()}}</h1> -->
     {%- if blog.key().id() == id -%}
       {%- include "entry.html" -%}
     {%- endif -%}

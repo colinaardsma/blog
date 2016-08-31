@@ -8,7 +8,23 @@
     <table width="100%">
       <tr>
         <td><div class="body-title">{{blog.title}}</div></td>
-        <td style="text-align: right"><button type="button">delete</button></td>
+        <td align="right">
+          <table>
+            <tr>
+              <td>{{blog.created.strftime('%d.%m.%Y')}}</td>
+              <td>
+                <form action="https://www.google.com">
+                  <button>modify</button>
+                </form>
+              </td>
+              <td>
+                <form action="https://www.bing.com">
+                  <button>delete</button>
+                </form>
+              </td>
+            </tr>
+          </table>
+        </td>
       </tr>
     </table>
 </div>

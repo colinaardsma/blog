@@ -23,6 +23,7 @@ class Blog(db.Model):
     title = db.StringProperty(required = True) #sets title to a string and makes it required
     body = db.TextProperty(required = True) #sets title to a text and makes it required (text is same as string but can be more than 500 characters and cannot be indexed)
     created = db.DateTimeProperty(auto_now_add = True) #sets created to equal current date/time
+    last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time
 
 class MainPage(Handler):
     def render_list(self, blogs=""):
@@ -34,7 +35,7 @@ class MainPage(Handler):
 
 class NewPost(Handler):
     def render_post(self, title="", body="", error=""):
-        self.render("new_post.html", title=title, body=body, error=error)
+        self.render("post.html", title=title, body=body, error=error)
 
     def get(self):
         self.render_post()
@@ -46,7 +47,8 @@ class NewPost(Handler):
         if title and body:
             a = Blog(title = title, body = body) #creates new blog object named a
             a.put() #stores a in database
-            self.redirect('/') #sends you back to new post page
+            blogID = "/blog/" + str(a.key().id())
+            self.redirect(blogID) #sends you back to new post page
         else:
             error = "Please enter both title and body!"
             self.render_post(title, body, error)
@@ -59,26 +61,48 @@ class Archive(Handler):
     def get(self):
         self.render_archive()
 
-class DeletePost(Handler):
-    def render_delete(self, blogs=""):
+class ModifyPost(Handler):
+    def render_modify(self, blogs=""):
         blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
-        self.render("delete_post.html", blogs=blogs)
+        self.render("modify_post.html", blogs=blogs)
 
     def get(self):
-        self.render_delete()
+        self.render_modify()
 
 class ViewPostHandler(Handler):
-    def render_view(self, id):
+    def render_view(self, id=""):
         blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
+        id = int(id) #id is stored as a string initially and will need to be tested against an int in view.html
         self.render("view.html", blogs=blogs, id=id)
 
-    def get(self, id):
+    def get(self, id=""):
         self.render_view(id)
+
+class EditPost(Handler):
+    def render_post(self, title="", body="", error=""):
+        self.render("post.html", title=title, body=body, error=error)
+
+    def get(self):
+        self.render_post()
+
+    def post(self):
+        title = self.request.get("title")
+        body = self.request.get("body")
+
+        if title and body:
+            a = Blog(title = title, body = body) #creates new blog object named a
+            a.put() #stores a in database
+            blogID = "/blog/" + str(a.key().id())
+            self.redirect(blogID) #sends you back to new post page
+        else:
+            error = "Please enter both title and body!"
+            self.render_post(title, body, error)
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/new_post', NewPost),
     ('/archive', Archive),
-    ('/delete_post', DeletePost),
-    webapp2.Route('/blog/<id:\d+>', ViewPostHandler)
+    ('/modify_post', ModifyPost),
+    webapp2.Route('/blog/<id:\d+>', ViewPostHandler),
+    ('/edit_post', EditPost)
 ], debug=True)
