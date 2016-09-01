@@ -47,8 +47,8 @@ class NewPost(Handler):
         if title and body:
             a = Blog(title = title, body = body) #creates new blog object named a
             a.put() #stores a in database
-            blogID = "/blog/" + str(a.key().id())
-            self.redirect(blogID) #sends you back to new post page
+            blogID = "/blog/%s" % str(a.key().id())
+            self.redirect(blogID) #sends you to view post page
         else:
             error = "Please enter both title and body!"
             self.render_post(title, body, error)
@@ -69,40 +69,49 @@ class ModifyPost(Handler):
     def get(self):
         self.render_modify()
 
-class ViewPostHandler(Handler):
-    def render_view(self, id=""):
-        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
+class ViewPost(Handler):
+    def render_view(self, id):
         id = int(id) #id is stored as a string initially and will need to be tested against an int in view.html
-        self.render("view.html", blogs=blogs, id=id)
+        post = Blog.get_by_id(id)
+        self.render("view.html", post=post, id=id)
 
-    def get(self, id=""):
+    def get(self, id):
         self.render_view(id)
 
 class EditPost(Handler):
-    def render_post(self, title="", body="", error=""):
-        self.render("post.html", title=title, body=body, error=error)
+    def render_post(self, id, title="", body="", error=""):
+        id = int(id) #id is stored as a string initially and will need to be tested against an int in view.html
+        post = Blog.get_by_id(id)
+        title = post.title
+        body = post.body
+        self.render("edit_post.html", post=post, id=id, title=title, body=body, error=error)
 
-    def get(self):
-        self.render_post()
+    def get(self, id):
+        self.render_post(id)
 
-    def post(self):
+    def post(self, id, title="", body="", error=""):
         title = self.request.get("title")
         body = self.request.get("body")
 
         if title and body:
-            a = Blog(title = title, body = body) #creates new blog object named a
-            a.put() #stores a in database
-            blogID = "/blog/" + str(a.key().id())
-            self.redirect(blogID) #sends you back to new post page
+            blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
+            id = int(id) #id is stored as a string initially and will need to be tested against an int in view.html
+            for blog in blogs:
+                if blog.key().id() == id:
+                    blog.title = title #edits
+                    blog.body = body
+                    blog.put() #stores a in database
+            blogID = "/blog/%s" % str(id)
+            self.redirect(blogID) #sends you to view post page
         else:
             error = "Please enter both title and body!"
-            self.render_post(title, body, error)
+            self.render_post(id, title, body, error)
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/new_post', NewPost),
     ('/archive', Archive),
     ('/modify_post', ModifyPost),
-    webapp2.Route('/blog/<id:\d+>', ViewPostHandler),
-    ('/edit_post', EditPost)
+    webapp2.Route('/blog/<id:\d+>', ViewPost),
+    webapp2.Route('/blog/<id:\d+>/edit', EditPost)
 ], debug=True)
