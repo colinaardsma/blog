@@ -1,7 +1,5 @@
 {%- extends "layout.html" -%}
 {%- block content -%}
-<h1>delete option under construction</h1>
-
 {%- for blog in blogs -%}
 <hr>
   <div class="body">
@@ -18,8 +16,8 @@
                 </form>
               </td>
               <td>
-                <form action="https://www.bing.com">
-                  <button>delete</button>
+                <form action="/blog/{{blog.key().id()}}/delete">
+                  <button onclick="confirm('Are you sure you want to delete?')">delete</button>
                 </form>
               </td>
             </tr>

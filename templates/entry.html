@@ -2,7 +2,7 @@
   <div class="body">
     <table width="100%">
       <tr>
-        <td><div class="body-title">{% if post %}{{post.title}}{% elif blog %}{{blog.title}}{% endif %}</div></td>
+        <td><div class="body-title"><a href="/blog/{% if post %}{{post.key().id()}}{% elif blog %}{{blog.key().id()}}{% endif %}">{% if post %}{{post.title}}{% elif blog %}{{blog.title}}{% endif %}</a></div></td>
         <td style="text-align: right"><div class="body-created">{% if post %}{{post.created.strftime('%m.%d.%Y')}}{% elif blog %}{{blog.created.strftime('%m.%d.%Y')}}{% endif %}</div></td>
       </tr>
     </table>

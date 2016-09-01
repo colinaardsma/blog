@@ -107,11 +107,22 @@ class EditPost(Handler):
             error = "Please enter both title and body!"
             self.render_post(id, title, body, error)
 
+class DeletePost(Handler):
+    def render_view(self, id):
+        id = int(id) #id is stored as a string initially and will need to be tested against an int in view.html
+        post = Blog.get_by_id(id)
+        post.delete()
+        self.redirect("/")
+
+    def get(self, id):
+        self.render_view(id)
+
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/new_post', NewPost),
     ('/archive', Archive),
     ('/modify_post', ModifyPost),
     webapp2.Route('/blog/<id:\d+>', ViewPost),
-    webapp2.Route('/blog/<id:\d+>/edit', EditPost)
+    webapp2.Route('/blog/<id:\d+>/edit', EditPost),
+    webapp2.Route('/blog/<id:\d+>/delete', DeletePost)
 ], debug=True)
