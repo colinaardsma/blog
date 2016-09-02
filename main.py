@@ -34,6 +34,14 @@ class Blog(db.Model):
 
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
+        #cookie experiement
+        visits = self.request.cookies.get('visits', '0')
+        if visits.isdigit():
+            visits = int(visits) + 1
+        else:
+            visits = 0
+        self.response.headers.add_header('Set-Cookie', 'visits=%s' % visits)
+
         page = self.request.get("page") #pull url query string
         if not page:
             page = 1
@@ -43,7 +51,7 @@ class MainPage(Handler):
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
         blogs = get_posts_pagination(limit, offset)
         lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, visits=visits)
 
     def get(self):
         page = self.request.get("page") #set url query string

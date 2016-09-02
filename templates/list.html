@@ -1,5 +1,6 @@
 {%- extends "layout.html" -%}
 {%- block content -%}
+<h1>You've been here {{visits}} times!</h1>
 {%- for blog in blogs -%}
 <hr>
 {%- include "entry.html" -%}
