@@ -1,12 +1,16 @@
 import os
 import webapp2
 import jinja2
+import math
 
 from google.appengine.ext import db
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
                                autoescape = True)
+
+def get_posts(limit, offset):
+    return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC LIMIT %s OFFSET %s" % (limit, offset))
 
 class Handler(webapp2.RequestHandler):
     def write(self, *a, **kw):
@@ -26,12 +30,21 @@ class Blog(db.Model):
     last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time
 
 class MainPage(Handler):
-    def render_list(self, blogs=""):
-        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC LIMIT 5") #table is named Blog because class is named Blog (the class creates the table)
-        self.render("list.html", blogs=blogs)
+    def render_list(self, blogs="", page=""):
+        page = self.request.get("page")
+        limit = 5
+        if not page:
+            page = 1
+        else:
+            page = int(page)
+        offset = (page - 1) * 5
+        blogs = get_posts(limit, offset)
+        lastPage = math.ceil(blogs.count() / limit)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage)
 
     def get(self):
-        self.render_list()
+        page = self.request.get("page")
+        self.render_list(page)
 
 class NewPost(Handler):
     def render_post(self, title="", body="", error=""):
