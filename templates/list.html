@@ -4,4 +4,7 @@
 <hr>
 {%- include "entry.html" -%}
 {%- endfor -%}
+{%- if page %}
+{%- include "navigation.html" -%}
+{%- endif -%}
 {%- endblock -%}

@@ -2,14 +2,14 @@
   <div class="body">
     <table width="100%">
       <tr>
-        <td><div class="body-title">{{blog.title}}</div></td>
-        <td style="text-align: right"><div class="body-created">{{blog.created.strftime('%d.%m.%Y')}}</div></td>
+        <td><div class="body-title"><a href="/blog/{% if post %}{{post.key().id()}}{% elif blog %}{{blog.key().id()}}{% endif %}">{% if post %}{{post.title}}{% elif blog %}{{blog.title}}{% endif %}</a></div></td>
+        <td style="text-align: right"><div class="body-created">{% if post %}{{post.created.strftime('%m.%d.%Y')}}{% elif blog %}{{blog.created.strftime('%m.%d.%Y')}}{% endif %}</div></td>
       </tr>
     </table>
     <table width="100%">
       <tr>
         <td><div class="body-body">
-          {{blog.body | replace('\n', '<br>' | safe)}}
+          {% if post %}{{post.body | replace('\n', '<br>' | safe)}}{% elif blog %}{{blog.body | replace('\n', '<br>' | safe)}}{% endif %}
         </div></td>
       </tr>
     </table>

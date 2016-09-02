@@ -1,7 +1,5 @@
 {%- extends "layout.html" -%}
 {%- block content -%}
-<h1>delete option under construction</h1>
-
 {%- for blog in blogs -%}
 <hr>
   <div class="body">
@@ -11,14 +9,14 @@
         <td align="right">
           <table>
             <tr>
-              <td>{{blog.created.strftime('%d.%m.%Y')}}</td>
+              <td>{{blog.created.strftime('%m.%d.%Y')}}</td>
               <td>
-                <form action="https://www.google.com">
+                <form action="/blog/{{blog.key().id()}}/edit">
                   <button>modify</button>
                 </form>
               </td>
               <td>
-                <form action="https://www.bing.com">
+                <form action="/blog/{{blog.key().id()}}/delete">
                   <button>delete</button>
                 </form>
               </td>

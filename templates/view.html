@@ -1,8 +1,4 @@
 {%- extends "layout.html" -%}
 {%- block content -%}
-  {%- for blog in blogs -%}
-    {%- if blog.key().id() == id -%}
-      {%- include "entry.html" -%}
-    {%- endif -%}
-  {%- endfor -%}
+{%- include "entry.html" -%}
 {%- endblock -%}
