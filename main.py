@@ -2,6 +2,7 @@ import os
 import webapp2
 import jinja2
 import math
+import hashlib
 
 from google.appengine.ext import db
 
@@ -14,6 +15,20 @@ def get_posts_pagination(limit, offset):
 
 def get_posts():
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
+
+#start of hasing methods
+def hash_str(s):
+    return hashlib.sha256(s).hexdigest() #call sha256 hashing and digest to return hash value
+
+def make_secure_val(s):
+    HASH = hash_str(s) #pull hash value of s
+    return "%s|%s" % (s, HASH) #return s,hash value
+
+def check_secure_val(h):
+    s = h.split("|")[0] #pull un-hashed value (s) from s,hash value
+    if h == make_secure_val(s): #check if hash value is valid for h
+        return s
+#end of hashing methods
 
 class Handler(webapp2.RequestHandler):
     def write(self, *a, **kw): #simplifies self.response.out.write to self.write
@@ -34,13 +49,20 @@ class Blog(db.Model):
 
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
-        #cookie experiement
-        visits = self.request.cookies.get('visits', '0')
-        if visits.isdigit():
-            visits = int(visits) + 1
-        else:
-            visits = 0
-        self.response.headers.add_header('Set-Cookie', 'visits=%s' % visits)
+        #cookie experiment
+        visits = 0
+        visit_cookie_str = self.request.cookies.get('visits') #get number of visits from cookie
+        if visit_cookie_str:
+            cookie_val = check_secure_val(visit_cookie_str) #check visits value against hashed value in cookie
+            if cookie_val:
+                visits = int(cookie_val)
+        visits += 1
+        new_cookie_val = make_secure_val(str(visits)) #create cookie(string|hash value) for visits
+        self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val) #create cookie for visits
+
+        #hashing experiement
+        x = hashlib.sha256("udacity")
+        y = x.hexdigest()
 
         page = self.request.get("page") #pull url query string
         if not page:
@@ -51,7 +73,7 @@ class MainPage(Handler):
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
         blogs = get_posts_pagination(limit, offset)
         lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, visits=visits)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, visits=visits, x=x, y=y)
 
     def get(self):
         page = self.request.get("page") #set url query string
