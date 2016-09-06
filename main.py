@@ -3,44 +3,71 @@ import webapp2
 import jinja2
 import math
 import hashlib
+import hmac #more secure version of hashlib (when is this best used?)
+import string
+import random
 
 from google.appengine.ext import db
 
-template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+#setup jinja2
+template_dir = os.path.join(os.path.dirname(__file__), 'templates') #set template_dir to main.py dir(current dir)/templates
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
-                               autoescape = True)
+                               autoescape = True) #set jinja2's working directory to template_dir
 
+#start of GQL queries
 def get_posts_pagination(limit, offset):
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC LIMIT %s OFFSET %s" % (limit, offset)) #pulls limit number of posts start at post offset, this allows for pagination
 
 def get_posts():
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
+#end of GQL queries
 
-#start of hasing methods
-def hash_str(s):
-    return hashlib.sha256(s).hexdigest() #call sha256 hashing and digest to return hash value
+#start of password hasing
+def make_salt():
+    size = 6
+    chars = string.ascii_lowercase + string.ascii_uppercase + string.digits #setup list of all uppercase and lowercase letters plus numbers
+    #return ''.join(random.choice(chars) for _ in range(size)) #for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
+    return ''.join(random.SystemRandom().choice(chars) for x in range(size)) #more secure version of random.choice, for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
 
-def make_secure_val(s):
-    HASH = hash_str(s) #pull hash value of s
-    return "%s|%s" % (s, HASH) #return s,hash value
+def make_pw_hash(name, pw, salt=""):
+    if not salt:
+        salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
+    h = hashlib.sha256(name + pw + salt).hexdigest()
+    return "%s,%s" % (h, salt)
+
+def valid_pw(name, pw, h):
+    salt = h.split(",")[1] #split h by "," and set salt to data after comma (h is hash,salt)
+    if h == make_pw_hash(name, pw, salt):
+        return True
+#end of password hashing
+
+#start of visit hashing
+def make_secure_val(s, salt=""):
+    if not salt:
+        salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
+    h = hashlib.sha256(s + salt).hexdigest()
+    return "%s|%s|%s" % (s, h, salt) #return s|hash value|salt value
 
 def check_secure_val(h):
-    s = h.split("|")[0] #pull un-hashed value (s) from s,hash value
-    if h == make_secure_val(s): #check if hash value is valid for h
+    s = h.split("|")[0] #pull un-hashed value (s) from s|hash value|salt value
+    salt = h.split("|")[2] #pull salt value from s|hash value|salt value
+    if h == make_secure_val(s, salt): #check if hash value is valid for h
         return s
-#end of hashing methods
+#end of visit hashing
 
+#define some functions that will be used by all pages
 class Handler(webapp2.RequestHandler):
     def write(self, *a, **kw): #simplifies self.response.out.write to self.write
         self.response.out.write(*a, **kw)
 
-    def render_str(self, template, **params): #creates the string that will render html using jinja2 and html template named template and parameters named params
+    def render_str(self, template, **params): #creates the string that will render html using jinja2 with html template named template and parameters named params
         t = jinja_env.get_template(template)
         return t.render(params)
 
     def render(self, template, **kw): #writes the html string created in render_str to the page
         self.write(self.render_str(template, **kw))
 
+#define columns of database objects
 class Blog(db.Model):
     title = db.StringProperty(required = True) #sets title to a string and makes it required
     body = db.TextProperty(required = True) #sets title to a text and makes it required (text is same as string but can be more than 500 characters and cannot be indexed)
@@ -61,8 +88,8 @@ class MainPage(Handler):
         self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val) #create cookie for visits
 
         #hashing experiement
-        x = hashlib.sha256("udacity")
-        y = x.hexdigest()
+        x = make_salt()
+        y = new_cookie_val
 
         page = self.request.get("page") #pull url query string
         if not page:
