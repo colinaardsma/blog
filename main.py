@@ -7,6 +7,7 @@ import hmac #more secure version of hashlib (when is this best used?)
 import string
 import random
 import re #regular expersions
+import hashing #import python file named hashing
 
 from google.appengine.ext import db
 
@@ -116,9 +117,9 @@ class Blog(db.Model):
 
 #define columns of database objects
 class Users(db.Model):
-    username = db.StringProperty(required = True) #sets title to a string and makes it required
-    password = db.StringProperty(required = True) #sets title to a string and makes it required
-    email = db.StringProperty(required = True) #sets title to a string and makes it required
+    username = db.StringProperty(required = True) #sets username to a string and makes it required
+    password = db.StringProperty(required = True) #sets password to a string and makes it required
+    email = db.StringProperty(required = False) #sets email to a string and makes it optional
     created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
     last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
 
@@ -136,10 +137,7 @@ class MainPage(Handler):
         new_cookie_val = make_secure_val(str(visits)) #create cookie(string|hash value) for visits
         self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val) #create cookie for visits
 
-        #login cookie
-        username = self.request.cookies.get('user') #get number of visits from cookie
 
-        self.response.headers.add_header('Set-Cookie', 'user=%s' % new_cookie_val) #create cookie for visits
 
 
 
@@ -295,10 +293,11 @@ class Registration(Handler):
             emailError = ""
         #see if any errors returned
         if error == False:
-            password = make_hash(username, password)
+            username = str(username)
+            password = make_pw_hash(username, password)
             user = Users(username=username, password=password, email=email) #create new blog object named post
             user.put() #store post in database
-            user_id = user.key().id()
+            user_id = int(user.key().id())
             self.response.headers.add_header('Set-Cookie', 'user=%s; path=/' % make_hash(user_id))
             self.redirect('/')
         else:
