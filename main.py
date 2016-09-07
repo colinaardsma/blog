@@ -22,39 +22,6 @@ def get_posts():
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
 #end of GQL queries
 
-#start of password hasing
-def make_salt():
-    size = 6
-    chars = string.ascii_lowercase + string.ascii_uppercase + string.digits #setup list of all uppercase and lowercase letters plus numbers
-    #return ''.join(random.choice(chars) for _ in range(size)) #for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
-    return ''.join(random.SystemRandom().choice(chars) for x in range(size)) #more secure version of random.choice, for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
-
-def make_pw_hash(name, pw, salt=""):
-    if not salt:
-        salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
-    h = hashlib.sha256(name + pw + salt).hexdigest()
-    return "%s,%s" % (h, salt)
-
-def valid_pw(name, pw, h):
-    salt = h.split(",")[1] #split h by "," and set salt to data after comma (h is hash,salt)
-    if h == make_pw_hash(name, pw, salt):
-        return True
-#end of password hashing
-
-#start of visit hashing
-def make_secure_val(s, salt=""):
-    if not salt:
-        salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
-    h = hashlib.sha256(s + salt).hexdigest()
-    return "%s|%s|%s" % (s, h, salt) #return s|hash value|salt value
-
-def check_secure_val(h):
-    s = h.split("|")[0] #pull un-hashed value (s) from s|hash value|salt value
-    salt = h.split("|")[2] #pull salt value from s|hash value|salt value
-    if h == make_secure_val(s, salt): #check if hash value is valid for h
-        return s
-#end of visit hashing
-
 #define some functions that will be used by all pages
 class Handler(webapp2.RequestHandler):
     def write(self, *a, **kw): #simplifies self.response.out.write to self.write
@@ -76,21 +43,6 @@ class Blog(db.Model):
 
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
-        #cookie experiment
-        visits = 0
-        visit_cookie_str = self.request.cookies.get('visits') #get number of visits from cookie
-        if visit_cookie_str:
-            cookie_val = check_secure_val(visit_cookie_str) #check visits value against hashed value in cookie
-            if cookie_val:
-                visits = int(cookie_val)
-        visits += 1
-        new_cookie_val = make_secure_val(str(visits)) #create cookie(string|hash value) for visits
-        self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val) #create cookie for visits
-
-        #hashing experiement
-        x = make_salt()
-        y = new_cookie_val
-
         page = self.request.get("page") #pull url query string
         if not page:
             page = 1
@@ -100,7 +52,7 @@ class MainPage(Handler):
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
         blogs = get_posts_pagination(limit, offset)
         lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, visits=visits, x=x, y=y)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage)
 
     def get(self):
         page = self.request.get("page") #set url query string
