@@ -44,16 +44,34 @@ def make_salt():
     #return ''.join(random.choice(chars) for _ in range(size)) #for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
     return ''.join(random.SystemRandom().choice(chars) for x in range(size)) #more secure version of random.choice, for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
 
-def make_hash(name, pw, salt=""):
+def make_pw_hash(name, pw, salt=""):
     if not salt:
         salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
     h = hashlib.sha256(name + pw + salt).hexdigest()
     return "%s|%s" % (h, salt)
 
 def valid_pw(name, pw, h):
-    salt = h.split("|")[1] #split h by "," and set salt to data after comma (h is hash,salt)
+    salt = h.split("|")[1] #split h by "|" and set salt to data after pipe (h is hash,salt)
     if h == make_hash(name, pw, salt):
         return True
+
+def make_hash(user_id, salt=""):
+    user = Users.get_by_id(user_id)
+    name = user.username
+    pw = user.password
+    if not salt:
+        salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
+    h = hashlib.sha256(name + pw + salt).hexdigest()
+    return "%s|%s|%s" % (user_id, h, salt)
+
+def valid_user_id(user_id, h):
+    user = Users.get_by_id(user_id)
+    name = user.username
+    pw = user.password
+    salt = h.split("|")[2]
+    if h == make_hash(name, pw, salt):
+        return True
+
 #end of password hashing
 
 #start of visit hashing
@@ -85,6 +103,7 @@ class Handler(webapp2.RequestHandler):
     def valid_cookie(self): #validates user login cookie
         login = self.request.cookies.get('user')
         if login:
+            Users.get_by_id(user_id)
             valid_login = valid_reg(login)
 
 
@@ -276,10 +295,11 @@ class Registration(Handler):
             emailError = ""
         #see if any errors returned
         if error == False:
-            password =
+            password = make_hash(username, password)
             user = Users(username=username, password=password, email=email) #create new blog object named post
             user.put() #store post in database
-            self.response.headers.add_header('Set-Cookie', 'user=%s; path=/' % make_hash(username, password))
+            user_id = user.key().id()
+            self.response.headers.add_header('Set-Cookie', 'user=%s; path=/' % make_hash(user_id))
             self.redirect('/')
         else:
             self.render_reg(username, email, usernameError, passwordError, passVerifyError, emailError)
