@@ -6,6 +6,7 @@ import hashlib
 import hmac #more secure version of hashlib (when is this best used?)
 import string
 import random
+import re #regular expersions
 
 from google.appengine.ext import db
 
@@ -22,6 +23,20 @@ def get_posts():
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
 #end of GQL queries
 
+#start of registration information verification
+USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+def valid_username(username):
+    return USER_RE.match(username)
+
+PASS_RE = re.compile(r"^.{3,20}$")
+def valid_password(password):
+    return PASS_RE.match(password)
+
+EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
+def valid_email(email):
+    return EMAIL_RE.match(email)
+#end of registration information verification
+
 #start of password hasing
 def make_salt():
     size = 6
@@ -29,15 +44,15 @@ def make_salt():
     #return ''.join(random.choice(chars) for _ in range(size)) #for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
     return ''.join(random.SystemRandom().choice(chars) for x in range(size)) #more secure version of random.choice, for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
 
-def make_pw_hash(name, pw, salt=""):
+def make_hash(name, pw, salt=""):
     if not salt:
         salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
     h = hashlib.sha256(name + pw + salt).hexdigest()
-    return "%s,%s" % (h, salt)
+    return "%s|%s" % (h, salt)
 
 def valid_pw(name, pw, h):
-    salt = h.split(",")[1] #split h by "," and set salt to data after comma (h is hash,salt)
-    if h == make_pw_hash(name, pw, salt):
+    salt = h.split("|")[1] #split h by "," and set salt to data after comma (h is hash,salt)
+    if h == make_hash(name, pw, salt):
         return True
 #end of password hashing
 
@@ -67,12 +82,27 @@ class Handler(webapp2.RequestHandler):
     def render(self, template, **kw): #writes the html string created in render_str to the page
         self.write(self.render_str(template, **kw))
 
+    def valid_cookie(self): #validates user login cookie
+        login = self.request.cookies.get('user')
+        if login:
+            valid_login = valid_reg(login)
+
+
 #define columns of database objects
 class Blog(db.Model):
     title = db.StringProperty(required = True) #sets title to a string and makes it required
     body = db.TextProperty(required = True) #sets title to a text and makes it required (text is same as string but can be more than 500 characters and cannot be indexed)
     created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
     last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
+
+#define columns of database objects
+class Users(db.Model):
+    username = db.StringProperty(required = True) #sets title to a string and makes it required
+    password = db.StringProperty(required = True) #sets title to a string and makes it required
+    email = db.StringProperty(required = True) #sets title to a string and makes it required
+    created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
+    last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
+
 
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
@@ -86,6 +116,13 @@ class MainPage(Handler):
         visits += 1
         new_cookie_val = make_secure_val(str(visits)) #create cookie(string|hash value) for visits
         self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val) #create cookie for visits
+
+        #login cookie
+        username = self.request.cookies.get('user') #get number of visits from cookie
+
+        self.response.headers.add_header('Set-Cookie', 'user=%s' % new_cookie_val) #create cookie for visits
+
+
 
         #hashing experiement
         x = make_salt()
@@ -188,6 +225,75 @@ class DeletePost(Handler):
     def get(self, post_id):
         self.render_view(post_id)
 
+class Registration(Handler):
+    def render_reg(self, username="", email="", usernameError="", passwordError="", passVerifyError="", emailError=""):
+        self.render("registration.html", username=username, email=email, usernameError=usernameError, passwordError=passwordError, passVerifyError=passVerifyError, emailError=emailError)
+
+    def get(self):
+        self.render_reg()
+
+    def post(self):
+        username = self.request.get("username")
+        password = self.request.get("password")
+        passVerify = self.request.get("passVerify")
+        email = self.request.get("email")
+        error = False
+
+        #check password
+        if not password: #check if password is blank
+            passwordError = "Password cannot be empty"
+            error = True
+        elif not valid_password(password): #check if password is valid
+            passwordError = "Invalid Password"
+            error = True
+        else:
+            passwordError = ""
+        #check password verification
+        if not passVerify: #check if password verification is blank
+            passVerifyError = "Password Verification cannot be empty"
+            error = True
+        elif password != passVerify: #check if password matches password verification
+            passVerifyError = "Passwords do not match"
+            error = True
+        else:
+            passVerifyError = ""
+        #check username
+        if not username: #check if username is blank
+            usernameError = "Username cannot be empty"
+            error = True
+        elif not valid_username(username): #check if username if valid
+            usernameError = "Invalid Username"
+            error = True
+        else:
+            usernameError = ""
+        #check email
+        if not email: #check if email is blank
+            emailError = ""
+        elif not valid_email(email): #check if email is valid
+            emailError = "Invalid Email"
+            error = True
+        else:
+            emailError = ""
+        #see if any errors returned
+        if error == False:
+            password =
+            user = Users(username=username, password=password, email=email) #create new blog object named post
+            user.put() #store post in database
+            self.response.headers.add_header('Set-Cookie', 'user=%s; path=/' % make_hash(username, password))
+            self.redirect('/')
+        else:
+            self.render_reg(username, email, usernameError, passwordError, passVerifyError, emailError)
+
+
+        # if title and body:
+        #     post = Blog(title = title, body = body) #create new blog object named post
+        #     post.put() #store post in database
+        #     blogID = "/blog/%s" % str(post.key().id())
+        #     self.redirect(blogID) #send you to view post page
+        # else:
+        #     error = "Please enter both title and body!"
+        #     self.render_post(title, body, error)
+
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/new_post', NewPost),
@@ -195,5 +301,6 @@ app = webapp2.WSGIApplication([
     ('/modify_post', ModifyPost),
     webapp2.Route('/blog/<post_id:\d+>', ViewPost),
     webapp2.Route('/blog/<post_id:\d+>/edit', EditPost),
-    webapp2.Route('/blog/<post_id:\d+>/delete', DeletePost)
+    webapp2.Route('/blog/<post_id:\d+>/delete', DeletePost),
+    ('/registration', Registration)
 ], debug=True)
