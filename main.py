@@ -45,7 +45,7 @@ def make_salt():
     #return ''.join(random.choice(chars) for _ in range(size)) #for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
     return ''.join(random.SystemRandom().choice(chars) for x in range(size)) #more secure version of random.choice, for every blank in string of length 'size' add random choice of uppercase, lowercase, or digits
 
-def make_pw_hash(name, pw, salt=""):
+def make_pw_hash(name, pw, salt=""): #for storage in db
     if not salt:
         salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
     h = hashlib.sha256(name + pw + salt).hexdigest()
@@ -56,38 +56,23 @@ def valid_pw(name, pw, h):
     if h == make_hash(name, pw, salt):
         return True
 
-def make_hash(user_id, salt=""):
-    user = Users.get_by_id(user_id)
-    name = user.username
-    pw = user.password
-    if not salt:
-        salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
-    h = hashlib.sha256(name + pw + salt).hexdigest()
-    return "%s|%s|%s" % (user_id, h, salt)
+def make_user_id_hash(user_id, salt=""): #for use in cookie
+    if not Users.get_by_id(user_id):
+        return
+    else:
+        user = Users.get_by_id(user_id) #currently crashes here if id is invalid
+        name = user.username
+        pw = user.password
+        if not salt:
+            salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
+            h = hashlib.sha256(name + pw + salt).hexdigest()
+        return "%s|%s|%s" % (user_id, h, salt)
 
 def valid_user_id(user_id, h):
-    user = Users.get_by_id(user_id)
-    name = user.username
-    pw = user.password
     salt = h.split("|")[2]
-    if h == make_hash(name, pw, salt):
+    if h == make_user_id_hash(user_id, salt):
         return True
-
 #end of password hashing
-
-#start of visit hashing
-def make_secure_val(s, salt=""):
-    if not salt:
-        salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
-    h = hashlib.sha256(s + salt).hexdigest()
-    return "%s|%s|%s" % (s, h, salt) #return s|hash value|salt value
-
-def check_secure_val(h):
-    s = h.split("|")[0] #pull un-hashed value (s) from s|hash value|salt value
-    salt = h.split("|")[2] #pull salt value from s|hash value|salt value
-    if h == make_secure_val(s, salt): #check if hash value is valid for h
-        return s
-#end of visit hashing
 
 #define some functions that will be used by all pages
 class Handler(webapp2.RequestHandler):
@@ -100,13 +85,6 @@ class Handler(webapp2.RequestHandler):
 
     def render(self, template, **kw): #writes the html string created in render_str to the page
         self.write(self.render_str(template, **kw))
-
-    def valid_cookie(self): #validates user login cookie
-        login = self.request.cookies.get('user')
-        if login:
-            Users.get_by_id(user_id)
-            valid_login = valid_reg(login)
-
 
 #define columns of database objects
 class Blog(db.Model):
@@ -126,24 +104,17 @@ class Users(db.Model):
 
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
-        #cookie experiment
-        visits = 0
-        visit_cookie_str = self.request.cookies.get('visits') #get number of visits from cookie
-        if visit_cookie_str:
-            cookie_val = check_secure_val(visit_cookie_str) #check visits value against hashed value in cookie
-            if cookie_val:
-                visits = int(cookie_val)
-        visits += 1
-        new_cookie_val = make_secure_val(str(visits)) #create cookie(string|hash value) for visits
-        self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val) #create cookie for visits
-
-
-
-
-
-        #hashing experiement
-        x = make_salt()
-        y = new_cookie_val
+        c = self.request.cookies.get('user')
+        username = ""
+        if c:
+            user_id = c.split("|")[0]
+            # user_id = int(user_id)
+            if valid_user_id(user_id, c):
+                user = Users.get_by_id(user_id)
+                username = user.username
+            else:
+                # self.response.headers.add_header('Set-Cookie', 'user=""; expires=0') #hash user id for use in cookie
+                self.redirect('/registration')
 
         page = self.request.get("page") #pull url query string
         if not page:
@@ -154,7 +125,7 @@ class MainPage(Handler):
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
         blogs = get_posts_pagination(limit, offset)
         lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, visits=visits, x=x, y=y)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, username=username, c=c)
 
     def get(self):
         page = self.request.get("page") #set url query string
@@ -293,12 +264,12 @@ class Registration(Handler):
             emailError = ""
         #see if any errors returned
         if error == False:
-            username = str(username)
-            password = make_pw_hash(username, password)
+            username = username
+            password = make_pw_hash(username, password) #hash password for storage in db
             user = Users(username=username, password=password, email=email) #create new blog object named post
             user.put() #store post in database
             user_id = int(user.key().id())
-            self.response.headers.add_header('Set-Cookie', 'user=%s; path=/' % make_hash(user_id))
+            self.response.headers.add_header('Set-Cookie', 'user=%s' % make_user_id_hash(user_id)) #hash user id for use in cookie
             self.redirect('/')
         else:
             self.render_reg(username, email, usernameError, passwordError, passVerifyError, emailError)

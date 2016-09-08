@@ -1,8 +1,6 @@
 {%- extends "layout.html" -%}
 {%- block content -%}
-<h1>You've been here {{visits}} times!</h1>
-<h2>Hash pre-digest: {{x}}</h2>
-<h2>Hash post-digest: {{y}}</h2>
+<h2>Cookie: {{c}}</h2>
 {%- for blog in blogs -%}
 <hr>
 {%- include "entry.html" -%}
