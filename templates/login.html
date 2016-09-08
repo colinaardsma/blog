@@ -1,0 +1,18 @@
+{%- extends "layout.html" -%}
+{%- block content -%}
+<form method="post">
+    <h1>Please login:</h1>
+    <table>
+        <tr>
+            <td>Username:</td>
+            <td><input class="regform" type="text" name="username" value="{{username}}" /></td>
+        </tr>
+        <tr>
+            <td>Password:</td>
+            <td><input class="regform" type="password" name="password" value="" /></td>
+        </tr>
+    </table>
+    <div style="color: red">{{error}}</div>
+    <input type = "submit" />
+</form>
+{%- endblock -%}

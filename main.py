@@ -37,11 +37,11 @@ EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
 def valid_email(email):
     return EMAIL_RE.match(email)
 
-def not_unique_username(username):
+def check_username(username):
     n = db.GqlQuery("SELECT * FROM Users ORDER BY username") #pull db of userinfo and order by username
     for name in n:
         if name.username == username:
-            return True
+            return name.key().id()
 #end of registration information verification
 
 #start of password hasing
@@ -89,6 +89,8 @@ def get_username(h):
         user = Users.get_by_id(user_id) #currently crashes here if id is invalid
         username = user.username
         return username
+
+
 #end of password hashing
 
 #define some functions that will be used by all pages
@@ -121,7 +123,12 @@ class Users(db.Model):
 
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
-        username = "blank"
+        c = self.request.cookies.get('user') #pull cookie value
+        if c:
+            usr = get_username(c) #set usr to username
+        else:
+            usr = "" #if no cookie set usr to blank
+
         page = self.request.get("page") #pull url query string
         if not page:
             page = 1
@@ -131,7 +138,7 @@ class MainPage(Handler):
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
         blogs = get_posts_pagination(limit, offset)
         lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, username=username)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr)
 
     def get(self):
         page = self.request.get("page") #set url query string
@@ -159,8 +166,14 @@ class NewPost(Handler):
 
 class Archive(Handler):
     def render_archive(self, blogs=""):
+        c = self.request.cookies.get('user') #pull cookie value
+        if c:
+            usr = get_username(c) #set usr to username
+        else:
+            usr = "" #if no cookie set usr to blank
+
         blogs = get_posts() #call get_posts to run GQL query
-        self.render("list.html", blogs=blogs)
+        self.render("list.html", blogs=blogs, usr=usr)
 
     def get(self):
         self.render_archive()
@@ -175,9 +188,15 @@ class ModifyPost(Handler):
 
 class ViewPost(Handler):
     def render_view(self, post_id):
+        c = self.request.cookies.get('user') #pull cookie value
+        if c:
+            usr = get_username(c) #set usr to username
+        else:
+            usr = "" #if no cookie set usr to blank
+
         post_id = int(post_id) #post_id is stored as a string initially and will need to be tested against an int in view.html
         post = Blog.get_by_id(post_id)
-        self.render("view.html", post=post, post_id=post_id)
+        self.render("view.html", post=post, post_id=post_id, usr=usr)
 
     def get(self, post_id):
         self.render_view(post_id)
@@ -258,7 +277,7 @@ class Registration(Handler):
         elif not valid_username(username): #check if username if valid
             usernameError = "Invalid Username"
             error = True
-        elif not_unique_username(username): #check if username is unique
+        elif check_username(username): #check if username is unique
             usernameError = "That username is taken"
             error = True
         else:
@@ -293,10 +312,51 @@ class Registration(Handler):
         #     error = "Please enter both title and body!"
         #     self.render_post(title, body, error)
 
+class Login(Handler):
+    def render_login(self, username="", error=""):
+        self.render("login.html", username=username, error=error)
+
+    def get(self):
+        self.render_login()
+
+    def post(self):
+        username = self.request.get("username")
+        password = self.request.get("password")
+
+        if not check_username(username):
+            error = "Invalid login"
+        else:
+            user_id = check_username(username)
+            user_id = int(user_id)
+            u = Users.get_by_id(user_id)
+            p = u.password
+            salt = p.split("|")[1]
+            if username == u.username:
+                if make_pw_hash(username, password, salt) == p:
+                    error = ""
+                else:
+                    error = "invalid login - pass"
+
+        if error:
+            self.render_login(username, error)
+        else:
+            self.response.headers.add_header('Set-Cookie', 'user=%s' % make_user_id_hash(user_id)) #hash user id for use in cookie
+            self.redirect('/welcome')
+
+class Logout(Handler):
+    def get(self):
+        self.response.headers.add_header('Set-Cookie', 'user=""; expires=Thu, 01-Jan-1970 00:00:10 GMT') #clear cookie
+        self.redirect('/registration')
+
 class Welcome(Handler):
     def render_welcome(self):
-        c = self.request.cookies.get('user')
+        c = self.request.cookies.get('user') #pull cookie value
         username = get_username(c)
+        if c:
+            usr = username #set usr to username
+        else:
+            usr = "" #if no cookie set usr to blank
+
         # if c:
         #     user_id = c.split("|")[0]
         #     if valid_user_id(user_id, c):
@@ -306,7 +366,7 @@ class Welcome(Handler):
         #         self.response.headers.add_header('Set-Cookie', 'user=""; expires=Thu, 01-Jan-1970 00:00:10 GMT') #hash user id for use in cookie
         #         self.redirect('/registration')
 
-        self.render("welcome.html", username=username)
+        self.render("welcome.html", username=username, usr=usr)
 
     def get(self):
         self.render_welcome()
@@ -320,5 +380,7 @@ app = webapp2.WSGIApplication([
     webapp2.Route('/blog/<post_id:\d+>/edit', EditPost),
     webapp2.Route('/blog/<post_id:\d+>/delete', DeletePost),
     ('/registration', Registration),
+    ('/login', Login),
+    ('/logout', Logout),
     ('/welcome', Welcome)
 ], debug=True)
