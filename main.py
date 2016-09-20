@@ -20,8 +20,19 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 def get_posts_pagination(limit, offset):
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC LIMIT %d OFFSET %d" % (limit, offset)) #pulls limit number of posts start at post offset, this allows for pagination
 
+def get_user_posts_pagination(usr, limit, offset):
+    # query = Blog.all().filter("author", usr).order("-created")
+    # return query.fetch(limit=limit, offset=offset)
+    return db.GqlQuery("SELECT * FROM Blog WHERE author = 'aghkZXZ-YmxvZ3ISCxIFVXNlcnMYgICAgICAwAkM' ORDER BY created DESC LIMIT %s OFFSET %s" % (limit, offset)) #pulls limit number of posts start at post offset, this allows for pagination
+
 def get_posts():
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
+
+def get_user_by_name(usr):
+    """ Get a user object from the db, based on their username """
+    user = db.GqlQuery("SELECT * FROM Users WHERE username = '%s'" % usr)
+    if user:
+        return user
 #end of GQL queries
 
 #start of registration information verification
@@ -90,6 +101,12 @@ def get_username(h):
         username = user.username
         return username
 
+def get_user_from_cookie(c):
+        if c:
+            usr = get_username(c) #set usr to username
+        else:
+            usr = "" #if no cookie set usr to blank
+        return usr
 
 #end of password hashing
 
@@ -105,12 +122,32 @@ class Handler(webapp2.RequestHandler):
     def render(self, template, **kw): #writes the html string created in render_str to the page
         self.write(self.render_str(template, **kw))
 
+    def initialize(self, *a, **kw):
+        """
+            A filter to restrict access to certain pages when not logged in.
+            If the request path is in the global auth_paths list, then the user
+            must be signed in to access the path/resource.
+        """
+        webapp2.RequestHandler.initialize(self, *a, **kw)
+        c = self.request.cookies.get('user') #pull cookie value
+        uid = ""
+        if c:
+            u = c.split("|")[0]
+            if not valid_user_id(u, c):
+                uid = u #set uid to username
+
+        self.user = uid and Users.get_by_id(int(uid))
+
+        if not self.user and self.request.path in auth_paths:
+            self.redirect('/login')
+
 #define columns of database objects
 class Blog(db.Model):
     title = db.StringProperty(required = True) #sets title to a string and makes it required
     body = db.TextProperty(required = True) #sets title to a text and makes it required (text is same as string but can be more than 500 characters and cannot be indexed)
     created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
     last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
+    author = db.ReferenceProperty(required = True) #sets author to username
 
 #define columns of database objects
 class Users(db.Model):
@@ -124,10 +161,7 @@ class Users(db.Model):
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
         c = self.request.cookies.get('user') #pull cookie value
-        if c:
-            usr = get_username(c) #set usr to username
-        else:
-            usr = "" #if no cookie set usr to blank
+        usr = get_user_from_cookie(c)
 
         page = self.request.get("page") #pull url query string
         if not page:
@@ -138,6 +172,7 @@ class MainPage(Handler):
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
         blogs = get_posts_pagination(limit, offset)
         lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
+
         self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr)
 
     def get(self):
@@ -146,7 +181,9 @@ class MainPage(Handler):
 
 class NewPost(Handler):
     def render_post(self, title="", body="", error=""):
-        self.render("post.html", title=title, body=body, error=error)
+        c = self.request.cookies.get('user') #pull cookie value
+        usr = get_user_from_cookie(c)
+        self.render("post.html", title=title, body=body, error=error, usr=usr)
 
     def get(self):
         self.render_post()
@@ -156,7 +193,7 @@ class NewPost(Handler):
         body = self.request.get("body")
 
         if title and body:
-            post = Blog(title = title, body = body) #create new blog object named post
+            post = Blog(title = title, body = body, author = self.user) #create new blog object named post
             post.put() #store post in database
             blogID = "/blog/%s" % str(post.key().id())
             self.redirect(blogID) #send you to view post page
@@ -167,10 +204,7 @@ class NewPost(Handler):
 class Archive(Handler):
     def render_archive(self, blogs=""):
         c = self.request.cookies.get('user') #pull cookie value
-        if c:
-            usr = get_username(c) #set usr to username
-        else:
-            usr = "" #if no cookie set usr to blank
+        usr = get_user_from_cookie(c)
 
         blogs = get_posts() #call get_posts to run GQL query
         self.render("list.html", blogs=blogs, usr=usr)
@@ -180,8 +214,10 @@ class Archive(Handler):
 
 class ModifyPost(Handler):
     def render_modify(self, blogs=""):
+        c = self.request.cookies.get('user') #pull cookie value
+        usr = get_user_from_cookie(c)
         blogs = get_posts() #call get_posts to run GQL query
-        self.render("modify_post.html", blogs=blogs)
+        self.render("modify_post.html", blogs=blogs, usr=usr)
 
     def get(self):
         self.render_modify()
@@ -189,10 +225,7 @@ class ModifyPost(Handler):
 class ViewPost(Handler):
     def render_view(self, post_id):
         c = self.request.cookies.get('user') #pull cookie value
-        if c:
-            usr = get_username(c) #set usr to username
-        else:
-            usr = "" #if no cookie set usr to blank
+        usr = get_user_from_cookie(c)
 
         post_id = int(post_id) #post_id is stored as a string initially and will need to be tested against an int in view.html
         post = Blog.get_by_id(post_id)
@@ -203,11 +236,13 @@ class ViewPost(Handler):
 
 class EditPost(Handler):
     def render_post(self, post_id, title="", body="", error=""):
+        c = self.request.cookies.get('user') #pull cookie value
+        usr = get_user_from_cookie(c)
         post_id = int(post_id) #post_id is stored as a string initially and will need to be tested against an int in view.html
         post = Blog.get_by_id(post_id) #retrieve row entry from Blog database based on id# in post_id and name it post
         title = post.title #get title of post
         body = post.body #get body of post
-        self.render("edit_post.html", post=post, post_id=post_id, title=title, body=body, error=error)
+        self.render("edit_post.html", post=post, post_id=post_id, title=title, body=body, error=error, usr=usr)
 
     def get(self, post_id):
         self.render_post(post_id)
@@ -237,6 +272,27 @@ class DeletePost(Handler):
 
     def get(self, post_id):
         self.render_view(post_id)
+
+class PostsByUser(Handler):
+    def render_list(self, usr, user="", page="", blogs=""):
+        c = self.request.cookies.get('user') #pull cookie value
+        usr = get_user_from_cookie(c)
+        user = get_user_by_name(usr)
+
+        page = self.request.get("page") #pull url query string
+        if not page:
+            page = 1
+        else:
+            page = int(page)
+        limit = 5 #number of entries displayed per page
+        offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
+        blogs = get_user_posts_pagination(user, limit, offset)
+        lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr)
+
+    def get(self, usr):
+        page = self.request.get("page") #set url query string
+        self.render_list(usr, page)
 
 class Registration(Handler):
     def render_reg(self, username="", email="", usernameError="", passwordError="", passVerifyError="", emailError=""):
@@ -351,22 +407,9 @@ class Logout(Handler):
 class Welcome(Handler):
     def render_welcome(self):
         c = self.request.cookies.get('user') #pull cookie value
-        username = get_username(c)
-        if c:
-            usr = username #set usr to username
-        else:
-            usr = "" #if no cookie set usr to blank
+        usr = get_user_from_cookie(c)
 
-        # if c:
-        #     user_id = c.split("|")[0]
-        #     if valid_user_id(user_id, c):
-        #         user = Users.get_by_id(user_id)
-        #         username = user.username
-        #     else:
-        #         self.response.headers.add_header('Set-Cookie', 'user=""; expires=Thu, 01-Jan-1970 00:00:10 GMT') #hash user id for use in cookie
-        #         self.redirect('/registration')
-
-        self.render("welcome.html", username=username, usr=usr)
+        self.redirect('/')
 
     def get(self):
         self.render_welcome()
@@ -379,8 +422,16 @@ app = webapp2.WSGIApplication([
     webapp2.Route('/blog/<post_id:\d+>', ViewPost),
     webapp2.Route('/blog/<post_id:\d+>/edit', EditPost),
     webapp2.Route('/blog/<post_id:\d+>/delete', DeletePost),
+    webapp2.Route('/blog/<usr:[a-zA-Z0-9_-]{3,20}>', PostsByUser),
     ('/registration', Registration),
     ('/login', Login),
     ('/logout', Logout),
     ('/welcome', Welcome)
 ], debug=True)
+
+auth_paths = [ #must be logged in to access these links
+    '/new_post',
+    '/modify_post',
+    '/blog/<post_id:\d+>/edit',
+    '/blog/<post_id:\d+>/delete'
+]
