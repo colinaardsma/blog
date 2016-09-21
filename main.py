@@ -23,7 +23,7 @@ def get_posts_pagination(limit, offset):
 def get_user_posts_pagination(usr, limit, offset):
     # query = Blog.all().filter("author", usr).order("-created")
     # return query.fetch(limit=limit, offset=offset)
-    return db.GqlQuery("SELECT * FROM Blog WHERE author = 'aghkZXZ-YmxvZ3ISCxIFVXNlcnMYgICAgICAwAkM' ORDER BY created DESC LIMIT %s OFFSET %s" % (limit, offset)) #pulls limit number of posts start at post offset, this allows for pagination
+    return db.GqlQuery("SELECT * FROM Blog WHERE author = '%s' ORDER BY created DESC LIMIT %s OFFSET %s" % (usr, limit, offset)) #pulls limit number of posts start at post offset, this allows for pagination
 
 def get_posts():
     return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
@@ -32,7 +32,7 @@ def get_user_by_name(usr):
     """ Get a user object from the db, based on their username """
     user = db.GqlQuery("SELECT * FROM Users WHERE username = '%s'" % usr)
     if user:
-        return user
+        return user.get()
 #end of GQL queries
 
 #start of registration information verification
@@ -142,14 +142,6 @@ class Handler(webapp2.RequestHandler):
             self.redirect('/login')
 
 #define columns of database objects
-class Blog(db.Model):
-    title = db.StringProperty(required = True) #sets title to a string and makes it required
-    body = db.TextProperty(required = True) #sets title to a text and makes it required (text is same as string but can be more than 500 characters and cannot be indexed)
-    created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
-    last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
-    author = db.ReferenceProperty(required = True) #sets author to username
-
-#define columns of database objects
 class Users(db.Model):
     username = db.StringProperty(required = True) #sets username to a string and makes it required
     password = db.StringProperty(required = True) #sets password to a string and makes it required
@@ -157,6 +149,13 @@ class Users(db.Model):
     created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
     last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
 
+#define columns of database objects
+class Blog(db.Model):
+    title = db.StringProperty(required = True) #sets title to a string and makes it required
+    body = db.TextProperty(required = True) #sets title to a text and makes it required (text is same as string but can be more than 500 characters and cannot be indexed)
+    created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
+    last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
+    author = db.ReferenceProperty(Users, required = True) #sets author to username
 
 class MainPage(Handler):
     def render_list(self, blogs="", page=""):
@@ -288,7 +287,7 @@ class PostsByUser(Handler):
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
         blogs = get_user_posts_pagination(user, limit, offset)
         lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, user=user)
 
     def get(self, usr):
         page = self.request.get("page") #set url query string
