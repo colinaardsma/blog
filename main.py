@@ -37,10 +37,14 @@ class Handler(webapp2.RequestHandler):
         if not self.user and self.request.path in auth_paths:
             self.redirect('/login')
 
-class MainPage(Handler):
-    def render_list(self, blogs="", page=""):
+class PostList(Handler): # if u has value then posts will be displayed by user, else all posts are displayed
+    def render_list(self, u, page="", blogs=""):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
+        if u:
+            poster = gqlqueries.get_user_by_name(u) #pulls the user from the db by name passed through the url
+        else:
+            poster = ""
 
         page = self.request.get("page") #pull url query string
         if not page:
@@ -49,14 +53,29 @@ class MainPage(Handler):
             page = int(page)
         limit = 5 #number of entries displayed per page
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
-        blogs = gqlqueries.get_posts(limit, offset)
-        allPosts = gqlqueries.get_posts()
+
+        blogs = gqlqueries.get_posts(limit, offset, poster)
+        allPosts = gqlqueries.get_posts(None, 0, poster)
         lastPage = math.ceil(len(allPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, u=u)
+
+    def get(self, u=""):
+        page = self.request.get("page") #set url query string
+        if u:
+            self.render_list(u, page)
+        else:
+            self.render_list(None, page)
+
+class Archive(Handler):
+    def render_archive(self, blogs=""):
+        c = self.request.cookies.get('user') #pull cookie value
+        usr = hashing.get_user_from_cookie(c)
+
+        blogs = gqlqueries.get_posts() #call get_posts to run GQL query
+        self.render("list.html", blogs=blogs, usr=usr)
 
     def get(self):
-        page = self.request.get("page") #set url query string
-        self.render_list(page)
+        self.render_archive()
 
 class NewPost(Handler):
     def render_post(self, title="", body="", error=""):
@@ -80,22 +99,12 @@ class NewPost(Handler):
             error = "Please enter both title and body!"
             self.render_post(title, body, error)
 
-class Archive(Handler):
-    def render_archive(self, blogs=""):
-        c = self.request.cookies.get('user') #pull cookie value
-        usr = hashing.get_user_from_cookie(c)
-
-        blogs = gqlqueries.get_posts() #call get_posts to run GQL query
-        self.render("list.html", blogs=blogs, usr=usr)
-
-    def get(self):
-        self.render_archive()
-
 class ModifyPost(Handler):
     def render_modify(self, blogs=""):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
-        blogs = gqlqueries.get_posts() #call get_posts to run GQL query
+        poster = gqlqueries.get_user_by_name(usr) #pulls the user from the db by name passed through the url
+        blogs = gqlqueries.get_posts(None, 0, poster) #call get_posts to run GQL query
         self.render("modify_post.html", blogs=blogs, usr=usr)
 
     def get(self):
@@ -151,29 +160,6 @@ class DeletePost(Handler):
 
     def get(self, post_id):
         self.render_view(post_id)
-
-class PostsByUser(Handler):
-    def render_list(self, u, page="", user="", blogs=""):
-        c = self.request.cookies.get('user') #pull cookie value
-        usr = hashing.get_user_from_cookie(c)
-        user = gqlqueries.get_user_by_name(usr)
-        poster = gqlqueries.get_user_by_name(u) #pulls the user from the db by name passed through the url
-
-        page = self.request.get("page") #pull url query string
-        if not page:
-            page = 1
-        else:
-            page = int(page)
-        limit = 5 #number of entries displayed per page
-        offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
-        blogs = gqlqueries.get_posts(limit, offset, poster)
-        allUserPosts = gqlqueries.get_posts(None, 0, poster)
-        lastPage = math.ceil(len(allUserPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, u=u)
-
-    def get(self, u):
-        page = self.request.get("page") #set url query string
-        self.render_list(u, page)
 
 class Registration(Handler):
     def render_reg(self, username="", email="", usernameError="", passwordError="", passVerifyError="", emailError=""):
@@ -286,14 +272,14 @@ class Welcome(Handler):
         self.render_welcome()
 
 app = webapp2.WSGIApplication([
-    ('/', MainPage),
-    ('/new_post', NewPost),
+    ('/', PostList),
+    webapp2.Route('/blog/<u:[a-zA-Z0-9_-]{3,20}>', PostList),
     ('/archive', Archive),
+    ('/new_post', NewPost),
     ('/modify_post', ModifyPost),
     webapp2.Route('/blog/<post_id:\d+>', ViewPost),
     webapp2.Route('/blog/<post_id:\d+>/edit', EditPost),
     webapp2.Route('/blog/<post_id:\d+>/delete', DeletePost),
-    webapp2.Route('/blog/<u:[a-zA-Z0-9_-]{3,20}>', PostsByUser),
     ('/registration', Registration),
     ('/login', Login),
     ('/logout', Logout),
