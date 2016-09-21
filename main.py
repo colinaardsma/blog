@@ -30,9 +30,7 @@ class Handler(webapp2.RequestHandler):
         c = self.request.cookies.get('user') #pull cookie value
         uid = ""
         if c:
-            u = c.split("|")[0]
-            if not hashing.valid_user_id(u, c):
-                uid = u #set uid to username
+            uid = hashing.check_secure_val(c)
 
         self.user = uid and Users.get_by_id(int(uid))
 
@@ -51,9 +49,9 @@ class MainPage(Handler):
             page = int(page)
         limit = 5 #number of entries displayed per page
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
-        blogs = gqlqueries.get_posts_pagination(limit, offset)
-        lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-
+        blogs = gqlqueries.get_posts(limit, offset)
+        allPosts = gqlqueries.get_posts()
+        lastPage = math.ceil(len(allPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
         self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr)
 
     def get(self):
@@ -155,10 +153,11 @@ class DeletePost(Handler):
         self.render_view(post_id)
 
 class PostsByUser(Handler):
-    def render_list(self, usr, user="", page="", blogs=""):
+    def render_list(self, u, page="", user="", blogs=""):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
         user = gqlqueries.get_user_by_name(usr)
+        poster = gqlqueries.get_user_by_name(u) #pulls the user from the db by name passed through the url
 
         page = self.request.get("page") #pull url query string
         if not page:
@@ -167,13 +166,14 @@ class PostsByUser(Handler):
             page = int(page)
         limit = 5 #number of entries displayed per page
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
-        blogs = gqlqueries.get_user_posts_pagination(user, limit, offset)
-        lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, user=user)
+        blogs = gqlqueries.get_posts(limit, offset, poster)
+        allUserPosts = gqlqueries.get_posts(None, 0, poster)
+        lastPage = math.ceil(len(allUserPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, u=u)
 
-    def get(self, usr):
+    def get(self, u):
         page = self.request.get("page") #set url query string
-        self.render_list(usr, page)
+        self.render_list(u, page)
 
 class Registration(Handler):
     def render_reg(self, username="", email="", usernameError="", passwordError="", passVerifyError="", emailError=""):
@@ -234,7 +234,7 @@ class Registration(Handler):
             user = Users(username=username, password=password, email=email) #create new blog object named post
             user.put() #store post in database
             user_id = user.key().id()
-            self.response.headers.add_header('Set-Cookie', 'user=%s' % hashing.make_user_id_hash(user_id)) #hash user id for use in cookie
+            self.response.headers.add_header('Set-Cookie', 'user=%s' % hashing.make_secure_val(user_id)) #hash user id for use in cookie
             self.redirect('/welcome')
         else:
             self.render_reg(username, email, usernameError, passwordError, passVerifyError, emailError)
@@ -267,7 +267,7 @@ class Login(Handler):
         if error:
             self.render_login(username, error)
         else:
-            self.response.headers.add_header('Set-Cookie', 'user=%s' % hashing.make_user_id_hash(user_id)) #hash user id for use in cookie
+            self.response.headers.add_header('Set-Cookie', 'user=%s' % hashing.make_secure_val(user_id)) #hash user id for use in cookie
             self.redirect('/welcome')
 
 class Logout(Handler):
@@ -293,7 +293,7 @@ app = webapp2.WSGIApplication([
     webapp2.Route('/blog/<post_id:\d+>', ViewPost),
     webapp2.Route('/blog/<post_id:\d+>/edit', EditPost),
     webapp2.Route('/blog/<post_id:\d+>/delete', DeletePost),
-    webapp2.Route('/blog/<usr:[a-zA-Z0-9_-]{3,20}>', PostsByUser),
+    webapp2.Route('/blog/<u:[a-zA-Z0-9_-]{3,20}>', PostsByUser),
     ('/registration', Registration),
     ('/login', Login),
     ('/logout', Logout),

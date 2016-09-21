@@ -1,9 +1,9 @@
-import hashlib
-import hmac #more secure version of hashlib (when is this best used?)
+import hashlib, hmac #hmac is more secure version of hashlib (when is this best used?)
 from dbmodels import Users #import Users class from python file named dbmodels
 import string
 import random
 
+""" fucntions for hasing and checking password values """
 def make_salt():
     size = 6
     chars = string.ascii_lowercase + string.ascii_uppercase + string.digits #setup list of all uppercase and lowercase letters plus numbers
@@ -21,26 +21,23 @@ def valid_pw(name, pw, h):
     if h == make_hash(name, pw, salt):
         return True
 
-def make_user_id_hash(user_id, salt=""): #for use in cookie
-    user_id = int(user_id)
-    if not Users.get_by_id(user_id):
-        return
-    else:
-        user = Users.get_by_id(user_id) #currently crashes here if id is invalid
-        name = user.username
-        pw = user.password
-        if not salt:
-            salt = make_salt() #if salt is empty then get salt value, salt will be empty if making a new value and will not be empty if validating an existing value
-            h = hashlib.sha256(name + pw + salt).hexdigest()
-            return "%s|%s|%s" % (user_id, h, salt)
+""" functions for hashing and checking cookie values """
+secret = "DF*BVG#$4oinm5bEBN46o0j594pmve345@63"
+def hash_str(s):
+    return hmac.new(secret,s).hexdigest()
 
-def valid_user_id(user_id, h):
-    salt = h.split("|")[2]
-    if h == make_user_id_hash(user_id, salt):
-        return True
+def make_secure_val(s):
+    s = str(s)
+    return "%s|%s" % (s, hash_str(s))
 
+def check_secure_val(h):
+    s = h.split("|")[0]
+    if h == make_secure_val(s):
+        return s
+
+""" functions to retrieve username """
 def get_username(h):
-    user_id = h.split("|")[0]
+    user_id = check_secure_val(h)
     user_id = int(user_id)
     if not Users.get_by_id(user_id):
         return
