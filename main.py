@@ -93,7 +93,7 @@ class NewPost(Handler):
         if title and body:
             post = Blog(title = title, body = body, author = self.user) #create new blog object named post
             post.put() #store post in database
-            blogID = "/blog/%s" % str(post.key().id())
+            blogID = "/post/%s" % str(post.key().id())
             self.redirect(blogID) #send you to view post page
         else:
             error = "Please enter both title and body!"
@@ -145,7 +145,7 @@ class EditPost(Handler):
             post.title = title #update post title
             post.body = body #update post body
             post.put() #uopdate post in database (will update modified datetime but not created datetime)
-            blogID = "/blog/%s" % str(post_id)
+            blogID = "/post/%s" % str(post_id)
             self.redirect(blogID) #sends you to view post page
         else:
             error = "Please enter both title and body!"
@@ -273,13 +273,13 @@ class Welcome(Handler):
 
 app = webapp2.WSGIApplication([
     ('/', PostList),
-    webapp2.Route('/blog/<u:[a-zA-Z0-9_-]{3,20}>', PostList),
+    webapp2.Route('/user/<u:[a-zA-Z0-9_-]{3,20}>', PostList),
     ('/archive', Archive),
     ('/new_post', NewPost),
     ('/modify_post', ModifyPost),
-    webapp2.Route('/blog/<post_id:\d+>', ViewPost),
-    webapp2.Route('/blog/<post_id:\d+>/edit', EditPost),
-    webapp2.Route('/blog/<post_id:\d+>/delete', DeletePost),
+    webapp2.Route('/post/<post_id:\d+>', ViewPost),
+    webapp2.Route('/post/<post_id:\d+>/edit', EditPost),
+    webapp2.Route('/post/<post_id:\d+>/delete', DeletePost),
     ('/registration', Registration),
     ('/login', Login),
     ('/logout', Logout),
@@ -289,6 +289,6 @@ app = webapp2.WSGIApplication([
 auth_paths = [ #must be logged in to access these links
     '/new_post',
     '/modify_post',
-    '/blog/<post_id:\d+>/edit',
-    '/blog/<post_id:\d+>/delete'
+    '/post/<post_id:\d+>/edit',
+    '/post/<post_id:\d+>/delete'
 ]

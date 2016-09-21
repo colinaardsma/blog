@@ -2,10 +2,10 @@
   <div class="body">
     <table width="100%">
       <tr>
-        <td><div class="body-title"><a href="/blog/{% if post %}{{post.key().id()}}{% elif blog %}{{blog.key().id()}}{% endif %}">{% if post %}{{post.title}}{% elif blog %}{{blog.title}}{% endif %}</a></div></td>
+        <td><div class="body-title"><a href="/post/{% if post %}{{post.key().id()}}{% elif blog %}{{blog.key().id()}}{% endif %}">{% if post %}{{post.title}}{% elif blog %}{{blog.title}}{% endif %}</a></div></td>
         <td style="text-align: right"><div class="body-created">
           <p>{% if post %}{{post.created.strftime('%m.%d.%Y')}}{% elif blog %}{{blog.created.strftime('%m.%d.%Y')}}{% endif %}</p>
-          <p>by <a href="/blog/{% if post %}{{post.author.username}}{% elif blog %}{{blog.author.username}}{% endif %}">{% if post %}{{post.author.username}}{% elif blog %}{{blog.author.username}}{% endif %}</a></p>
+          <p>by <a href="/user/{% if post %}{{post.author.username}}{% elif blog %}{{blog.author.username}}{% endif %}">{% if post %}{{post.author.username}}{% elif blog %}{{blog.author.username}}{% endif %}</a></p>
           </div></td>
       </tr>
     </table>

@@ -2,7 +2,7 @@
 <br>
 <table width="100%">
   <tr>
-    <form {% if u %}action="\blog\{{u}}"{% else %}action="\"{% endif %}>
+    <form {% if u %}action="\user\{{u}}"{% else %}action="\"{% endif %}>
       <td width="50%" style="text-align: center">
         {%- if page > 1 -%}<button name="page" value="{{page - 1}}">&lt;&lt;&lt;&nbsp;previous</button>{%- endif -%}
       </td>
