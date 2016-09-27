@@ -1,0 +1,29 @@
+{%- extends "layout.html" -%}
+{%- block content -%}
+<form method="post">
+    <h1>Please enter your info:</h1>
+    <table>
+        <tr>
+            <td>Username:</td>
+            <td><input class="regform" type="text" name="username" value="{{username}}" /></td>
+            <td><div style="color: red">{{usernameError}}</div></td>
+        </tr>
+        <tr>
+            <td>Password:</td>
+            <td><input class="regform" type="password" name="password" value="" /></td>
+            <td><div style="color: red">{{passwordError}}</div></td>
+        </tr>
+        <tr>
+            <td>Re-enter Password:</td>
+            <td><input class="regform" type="password" name="passVerify" value="" /></td>
+            <td><div style="color: red">{{passVerifyError}}</div></td>
+        </tr>
+        <tr>
+            <td>Email (optional):</td>
+            <td><input class="regform" type="text" name="email" value="{{email}}" /></td>
+            <td><div style="color: red">{{emailError}}</div></td>
+        </tr>
+    </table>
+    <input type = "submit" />
+</form>
+{%- endblock -%}

@@ -11,13 +11,13 @@
             <tr>
               <td>{{blog.created.strftime('%m.%d.%Y')}}</td>
               <td>
-                <form action="/blog/{{blog.key().id()}}/edit">
+                <form action="/post/{{blog.key().id()}}/edit">
                   <button>modify</button>
                 </form>
               </td>
               <td>
-                <form action="/blog/{{blog.key().id()}}/delete">
-                  <button>delete</button>
+                <form>
+                  <input type="button" value="delete" onclick="if(confirm('Are you sure you want to delete this post?')) location.href = '/post/{{blog.key().id()}}/delete'" />
                 </form>
               </td>
             </tr>
@@ -27,21 +27,4 @@
     </table>
 </div>
 {% endfor %}
-
-<!-- {%- for blog in blogs -%}
-
-<form action="/cross-off" method="post">
-    <label>
-        I want to cross off
-        <select name="crossed-off-movie"/> -->
-            <!-- *leave this commented out* need to loop over watchlist to create option elements -->
-            <!-- {% for movie in watchlist: %}
-                <option value="{{ movie }}">{{ movie }}</option>
-            {% endfor %}
-        </select>
-        from my watchlist.
-    </label>
-    <input type="submit" value="Cross It Off"/>
-</form>
-{%- endfor -%} -->
 {%- endblock -%}
