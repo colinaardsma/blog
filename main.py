@@ -1,6 +1,6 @@
-import os, webapp2, math, re #import stock python methods (re is regular expersions)
+import os, webapp2, math, re, json #import stock python methods (re is regular expersions)
 import jinja2 #need to install jinja2 (not stock)
-import hashing, gqlqueries, validuser #import python files I've made
+import hashing, gqlqueries, validuser, coordinateRetrieval #import python files I've made
 from dbmodels import Users, Blog #import Users and Blog classes from python file named dbmodels
 
 #setup jinja2
@@ -92,6 +92,9 @@ class NewPost(Handler):
 
         if title and body:
             post = Blog(title = title, body = body, author = self.user) #create new blog object named post
+            coords = coordinateRetrieval.get_coords(self.request.remote_addr) #pull coordinates based on IP of poster
+            if coords:
+                post.coords = coords #if we have coordinates, add them to the db entry
             post.put() #store post in database
             blogID = "/post/%s" % str(post.key().id())
             self.redirect(blogID) #send you to view post page
@@ -271,6 +274,53 @@ class Welcome(Handler):
     def get(self):
         self.render_welcome()
 
+class Map(Handler):
+    def render_map(self):
+        c = self.request.cookies.get('user') #pull cookie value
+        usr = hashing.get_user_from_cookie(c)
+
+        blogs = gqlqueries.get_posts()
+        # arts = list(arts) #turns the db query above into a list object so that it doesnt run a new db search each time it is called
+
+        points = []
+        for b in blogs: #find which arts have coords
+            points.append(b.coords) #if we have any arts coords, make an image url
+
+        mapUrl = coordinateRetrieval.getMap(points)
+
+        self.render("map.html", usr=usr, mapUrl=mapUrl)
+
+    def get(self):
+        self.render_map()
+
+class jsonHandler(Handler):
+    def render_json(self, post_id=""):
+        if post_id: #if a single post is requested fetch by ID
+            post_id = int(post_id) #post_id is stored as a string initially and will need to be tested against an int in view.html
+            post = Blog.get_by_id(post_id)
+            jsonData = {} #establish reusable blogData dictionary
+            jsonData["title"] = post.title #add title to dictionary
+            jsonData["body"] = post.body #add body to dictionary
+            jsonData["created"] = post.created.strftime('%m.%d.%Y') #add created date to dictionary and format
+            jsonData["last_modified"] = post.last_modified.strftime('%m.%d.%Y') #add modified date to dictionary and format
+            jsonData["author"] = post.author.username #add author to dictionary
+        else: #if entire blog is requested iterate through database
+            jsonData = [] #establish jsonData list
+            blogs = gqlqueries.get_posts() #call get_posts to run GQL query
+            for b in blogs:
+                blogData = {} #establish reusable blogData dictionary
+                blogData["title"] = b.title #add title to dictionary
+                blogData["body"] = b.body #add body to dictionary
+                blogData["created"] = b.created.strftime('%m.%d.%Y') #add created date to dictionary and format
+                blogData["last_modified"] = b.last_modified.strftime('%m.%d.%Y') #add modified date to dictionary and format
+                blogData["author"] = b.author.username #add author to dictionary
+                jsonData.append(blogData) #add dictionary to list
+        self.response.headers['Content-Type'] = 'application/json; charset=UTF-8' #set content-type to json and charset to UTF-8
+        self.write(json.dumps(jsonData)) #write json data to page
+
+    def get(self, post_id=""):
+        self.render_json(post_id)
+
 app = webapp2.WSGIApplication([
     ('/', PostList),
     webapp2.Route('/user/<u:[a-zA-Z0-9_-]{3,20}>', PostList),
@@ -283,7 +333,10 @@ app = webapp2.WSGIApplication([
     ('/registration', Registration),
     ('/login', Login),
     ('/logout', Logout),
-    ('/welcome', Welcome)
+    ('/welcome', Welcome),
+    ('/map', Map),
+    ('/.json', jsonHandler),
+    webapp2.Route('/post/<post_id:\d+>.json', jsonHandler)
 ], debug=True)
 
 auth_paths = [ #must be logged in to access these links

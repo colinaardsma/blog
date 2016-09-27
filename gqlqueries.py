@@ -11,12 +11,14 @@ def get_posts(limit=None, offset=0, user=""):
 
 def get_user_by_name(usr):
     """ Get a user object from the db, based on their username """
-    user = db.GqlQuery("SELECT * FROM Users WHERE username = '%s'" % usr)
+    # user = db.GqlQuery("SELECT * FROM Users WHERE username = '%s'" % usr) #using %s in SQL queries is BAD, never do this
+    user = Users.all().filter("username", usr) # .all() = "SELECT *"; .filter("username", usr) = "username = usr"
     if user:
         return user.get()
 
 def check_username(username):
-    n = db.GqlQuery("SELECT * FROM Users ORDER BY username") #pull db of userinfo and order by username
+    # n = db.GqlQuery("SELECT * FROM Users ORDER BY username") #pull db of userinfo and order by username
+    n = Users.all().order("username") # .all() = "SELECT *"; .order("username") = "ORDER BY username"
     for name in n:
         if name.username == username:
             return name.key().id()
