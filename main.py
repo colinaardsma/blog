@@ -1,6 +1,6 @@
 import os, webapp2, math, re, json #import stock python methods (re is regular expersions)
 import jinja2 #need to install jinja2 (not stock)
-import hashing, gqlqueries, validuser, coordinateRetrieval #import python files I've made
+import hashing, gqlqueries, validuser, coordinateRetrieval, caching #import python files I've made
 from dbmodels import Users, Blog #import Users and Blog classes from python file named dbmodels
 
 #setup jinja2
@@ -42,7 +42,7 @@ class PostList(Handler): # if u has value then posts will be displayed by user, 
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
         if u:
-            poster = gqlqueries.get_user_by_name(u) #pulls the user from the db by name passed through the url
+            poster = caching.cached_user_by_name(u) #pulls the user from the db by name passed through the url
         else:
             poster = ""
 
@@ -54,8 +54,8 @@ class PostList(Handler): # if u has value then posts will be displayed by user, 
         limit = 5 #number of entries displayed per page
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
 
-        blogs = gqlqueries.get_posts(limit, offset, poster)
-        allPosts = gqlqueries.get_posts(None, 0, poster)
+        blogs = caching.cached_posts(limit, offset, poster)
+        allPosts = caching.cached_posts(None, 0, poster)
         lastPage = math.ceil(len(allPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
         self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, u=u)
 
@@ -71,7 +71,7 @@ class Archive(Handler):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
 
-        blogs = gqlqueries.get_posts() #call get_posts to run GQL query
+        blogs = caching.cached_posts() #call get_posts to run GQL query
         self.render("list.html", blogs=blogs, usr=usr)
 
     def get(self):
@@ -106,8 +106,8 @@ class ModifyPost(Handler):
     def render_modify(self, blogs=""):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
-        poster = gqlqueries.get_user_by_name(usr) #pulls the user from the db by name passed through the url
-        blogs = gqlqueries.get_posts(None, 0, poster) #call get_posts to run GQL query
+        poster = caching.cached_user_by_name(usr) #pulls the user from the db by name passed through the url
+        blogs = caching.cached_posts(None, 0, poster) #call get_posts to run GQL query
         self.render("modify_post.html", blogs=blogs, usr=usr)
 
     def get(self):
@@ -203,7 +203,7 @@ class Registration(Handler):
         elif not validuser.valid_username(username): #check if username if valid
             usernameError = "Invalid Username"
             error = True
-        elif gqlqueries.check_username(username): #check if username is unique
+        elif caching.cached_check_username(username): #check if username is unique
             usernameError = "That username is taken"
             error = True
         else:
@@ -239,10 +239,10 @@ class Login(Handler):
         username = self.request.get("username")
         password = self.request.get("password")
 
-        if not gqlqueries.check_username(username):
+        if not caching.cached_check_username(username):
             error = "Invalid login"
         else:
-            user_id = gqlqueries.check_username(username)
+            user_id = caching.cached_check_username(username)
             user_id = int(user_id)
             u = Users.get_by_id(user_id)
             p = u.password
@@ -279,7 +279,7 @@ class Map(Handler):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
 
-        blogs = gqlqueries.get_posts()
+        blogs = caching.cached_posts()
         # arts = list(arts) #turns the db query above into a list object so that it doesnt run a new db search each time it is called
 
         points = []
@@ -306,7 +306,7 @@ class jsonHandler(Handler):
             jsonData["author"] = post.author.username #add author to dictionary
         else: #if entire blog is requested iterate through database
             jsonData = [] #establish jsonData list
-            blogs = gqlqueries.get_posts() #call get_posts to run GQL query
+            blogs = caching.cached_posts() #call get_posts to run GQL query
             for b in blogs:
                 blogData = {} #establish reusable blogData dictionary
                 blogData["title"] = b.title #add title to dictionary
@@ -322,26 +322,28 @@ class jsonHandler(Handler):
         self.render_json(post_id)
 
 app = webapp2.WSGIApplication([
-    ('/?', PostList),
-    webapp2.Route('/user/<u:[a-zA-Z0-9_-]{3,20}>/?', PostList),
+    ('/', PostList),
+    webapp2.Route('/user/<u:[a-zA-Z0-9_-]{3,20}>', PostList),
     ('/archive/?', Archive),
     ('/new_post/?', NewPost),
     ('/modify_post/?', ModifyPost),
-    webapp2.Route('/post/<post_id:\d+>/?', ViewPost),
-    webapp2.Route('/post/<post_id:\d+>/edit/?', EditPost),
-    webapp2.Route('/post/<post_id:\d+>/delete/?', DeletePost),
+    webapp2.Route('/post/<post_id:\d+>', ViewPost),
+    webapp2.Route('/post/<post_id:\d+>/edit', EditPost),
+    webapp2.Route('/post/<post_id:\d+>/delete', DeletePost),
     ('/registration/?', Registration),
     ('/login/?', Login),
     ('/logout/?', Logout),
     ('/welcome/?', Welcome),
     ('/map/?', Map),
-    ('/?.json', jsonHandler),
-    webapp2.Route('/post/<post_id:\d+>/?.json', jsonHandler)
+    ('/.json', jsonHandler),
+    webapp2.Route('/post/<post_id:\d+>.json', jsonHandler)
 ], debug=True)
 
 auth_paths = [ #must be logged in to access these links
-    '/new_post/?',
-    '/modify_post/?',
-    '/post/<post_id:\d+>/edit/?',
-    '/post/<post_id:\d+>/delete/?'
+    '/new_post',
+    '/new_post/',
+    '/modify_post',
+    '/modify_post/',
+    '/post/<post_id:\d+>/edit',
+    '/post/<post_id:\d+>/delete'
 ]
