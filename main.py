@@ -97,6 +97,7 @@ class NewPost(Handler):
                 post.coords = coords #if we have coordinates, add them to the db entry
             post.put() #store post in database
             blogID = "/post/%s" % str(post.key().id())
+            caching.POST_CACHE.clear() #clear cache
             self.redirect(blogID) #send you to view post page
         else:
             error = "Please enter both title and body!"
@@ -224,6 +225,8 @@ class Registration(Handler):
             user.put() #store post in database
             user_id = user.key().id()
             self.response.headers.add_header('Set-Cookie', 'user=%s' % hashing.make_secure_val(user_id)) #hash user id for use in cookie
+            caching.USER_BY_NAME_CACHE.clear() #clear cache
+            caching.USERNAME_CACHE.clear() #clear cache
             self.redirect('/welcome')
         else:
             self.render_reg(username, email, usernameError, passwordError, passVerifyError, emailError)

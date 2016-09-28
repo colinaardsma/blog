@@ -1,30 +1,32 @@
 import gqlqueries
 from dbmodels import Users, Blog #import Users and Blog classes from python file named dbmodels
 
-cache = {}
+POST_CACHE = {}
 def cached_posts(limit=None, offset=0, user=""):
     key = (limit, offset, user)
-    if key in cache:
-        r = cache[key]
+    if key in POST_CACHE:
+        r = POST_CACHE[key]
     else:
         r = gqlqueries.get_posts(limit, offset, user)
-        cache[key] = r
+        POST_CACHE[key] = r
     return r
 
+USER_BY_NAME_CACHE = {}
 def cached_user_by_name(usr):
     key = (usr)
-    if key in cache:
-        r = cache[key]
+    if key in USER_BY_NAME_CACHE:
+        r = USER_BY_NAME_CACHE[key]
     else:
         r = gqlqueries.get_user_by_name(usr)
-        cache[key] = r
+        USER_BY_NAME_CACHE[key] = r
     return r
 
+USERNAME_CACHE = {}
 def cached_check_username(username):
     key = (username)
-    if key in cache:
-        r = cache[key]
+    if key in USERNAME_CACHE:
+        r = USERNAME_CACHE[key]
     else:
         r = gqlqueries.check_username(username)
-        cache[key] = r
+        USERNAME_CACHE[key] = r
     return r
