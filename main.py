@@ -8,17 +8,6 @@ template_dir = os.path.join(os.path.dirname(__file__), 'templates') #set templat
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
                                autoescape = True) #set jinja2's working directory to template_dir
 
-<<<<<<< HEAD
-#start of GQL queries
-def get_posts_pagination(limit, offset):
-    return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC LIMIT %s OFFSET %s" % (limit, offset)) #pulls limit number of posts start at post offset, this allows for pagination
-
-def get_posts():
-    return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
-#end of GQL queries
-
-=======
->>>>>>> auth
 #define some functions that will be used by all pages
 class Handler(webapp2.RequestHandler):
     def write(self, *a, **kw): #simplifies self.response.out.write to self.write
@@ -31,17 +20,6 @@ class Handler(webapp2.RequestHandler):
     def render(self, template, **kw): #writes the html string created in render_str to the page
         self.write(self.render_str(template, **kw))
 
-<<<<<<< HEAD
-#define columns of database objects
-class Blog(db.Model):
-    title = db.StringProperty(required = True) #sets title to a string and makes it required
-    body = db.TextProperty(required = True) #sets title to a text and makes it required (text is same as string but can be more than 500 characters and cannot be indexed)
-    created = db.DateTimeProperty(auto_now_add = True) #sets created to equal date/time of creation (this cannot be modified)
-    last_modified = db.DateTimeProperty(auto_now = True) #sets last_modified to equal current date/time (this can be modified)
-
-class MainPage(Handler):
-    def render_list(self, blogs="", page=""):
-=======
     def initialize(self, *a, **kw):
         """
             A filter to restrict access to certain pages when not logged in.
@@ -68,7 +46,6 @@ class PostList(Handler): # if u has value then posts will be displayed by user, 
         else:
             poster = ""
 
->>>>>>> auth
         page = self.request.get("page") #pull url query string
         if not page:
             page = 1
@@ -76,12 +53,6 @@ class PostList(Handler): # if u has value then posts will be displayed by user, 
             page = int(page)
         limit = 5 #number of entries displayed per page
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
-<<<<<<< HEAD
-        blogs = get_posts_pagination(limit, offset)
-        lastPage = math.ceil(blogs.count() / limit) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage)
-=======
->>>>>>> auth
 
         blogs = gqlqueries.get_posts(limit, offset, poster)
         allPosts = gqlqueries.get_posts(None, 0, poster)
@@ -351,26 +322,26 @@ class jsonHandler(Handler):
         self.render_json(post_id)
 
 app = webapp2.WSGIApplication([
-    ('/', PostList),
-    webapp2.Route('/user/<u:[a-zA-Z0-9_-]{3,20}>', PostList),
-    ('/archive', Archive),
-    ('/new_post', NewPost),
-    ('/modify_post', ModifyPost),
-    webapp2.Route('/post/<post_id:\d+>', ViewPost),
-    webapp2.Route('/post/<post_id:\d+>/edit', EditPost),
-    webapp2.Route('/post/<post_id:\d+>/delete', DeletePost),
-    ('/registration', Registration),
-    ('/login', Login),
-    ('/logout', Logout),
-    ('/welcome', Welcome),
-    ('/map', Map),
-    ('/.json', jsonHandler),
-    webapp2.Route('/post/<post_id:\d+>.json', jsonHandler)
+    ('/?', PostList),
+    webapp2.Route('/user/<u:[a-zA-Z0-9_-]{3,20}>/?', PostList),
+    ('/archive/?', Archive),
+    ('/new_post/?', NewPost),
+    ('/modify_post/?', ModifyPost),
+    webapp2.Route('/post/<post_id:\d+>/?', ViewPost),
+    webapp2.Route('/post/<post_id:\d+>/edit/?', EditPost),
+    webapp2.Route('/post/<post_id:\d+>/delete/?', DeletePost),
+    ('/registration/?', Registration),
+    ('/login/?', Login),
+    ('/logout/?', Logout),
+    ('/welcome/?', Welcome),
+    ('/map/?', Map),
+    ('/?.json', jsonHandler),
+    webapp2.Route('/post/<post_id:\d+>/?.json', jsonHandler)
 ], debug=True)
 
 auth_paths = [ #must be logged in to access these links
-    '/new_post',
-    '/modify_post',
-    '/post/<post_id:\d+>/edit',
-    '/post/<post_id:\d+>/delete'
+    '/new_post/?',
+    '/modify_post/?',
+    '/post/<post_id:\d+>/edit/?',
+    '/post/<post_id:\d+>/delete/?'
 ]
