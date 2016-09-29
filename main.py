@@ -2,6 +2,7 @@ import os, webapp2, math, re, json #import stock python methods (re is regular e
 import jinja2 #need to install jinja2 (not stock)
 import hashing, gqlqueries, validuser, coordinateRetrieval, caching #import python files I've made
 from dbmodels import Users, Blog #import Users and Blog classes from python file named dbmodels
+import time
 
 #setup jinja2
 template_dir = os.path.join(os.path.dirname(__file__), 'templates') #set template_dir to main.py dir(current dir)/templates
@@ -38,6 +39,8 @@ class Handler(webapp2.RequestHandler):
             self.redirect('/login')
 
 class PostList(Handler): # if u has value then posts will be displayed by user, else all posts are displayed
+    limit = 5 #number of entries displayed per page
+
     def render_list(self, u, page="", blogs=""):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
@@ -51,12 +54,11 @@ class PostList(Handler): # if u has value then posts will be displayed by user, 
             page = 1
         else:
             page = int(page)
-        limit = 5 #number of entries displayed per page
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
 
-        blogs = caching.cached_posts(limit, offset, poster)
+        blogs = caching.cached_posts(self.limit, offset, poster)
         allPosts = caching.cached_posts(None, 0, poster)
-        lastPage = math.ceil(len(allPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
+        lastPage = math.ceil(len(allPosts) / float(self.limit)) #calculate the last page required based on the number of entries and entries displayed per page
         self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, u=u)
 
     def get(self, u=""):
@@ -87,6 +89,9 @@ class NewPost(Handler):
         self.render_post()
 
     def post(self):
+        c = self.request.cookies.get('user') #pull cookie value
+        usr = hashing.get_user_from_cookie(c)
+
         title = self.request.get("title")
         body = self.request.get("body")
 
@@ -96,8 +101,33 @@ class NewPost(Handler):
             if coords:
                 post.coords = coords #if we have coordinates, add them to the db entry
             post.put() #store post in database
+
+            #update cache
+            time.sleep(.1) #ewait 1/10 of a second while post is entered into db
+            poster = caching.cached_user_by_name(post.author.username) #pulls the user from the db by name passed through the url
+            caching.cached_posts(None, 0, poster, True) #direct cached_posts to update cache
+            caching.cached_posts(None, 0, "", True) #direct cached_posts to update cache
+
+            limit = PostList.limit #number of entries displayed per page
+
+            #update cache of pagination by user
+            allPostsByPoster = caching.cached_posts(None, 0, poster)
+            lastPageByPoster = math.ceil(len(allPostsByPoster) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
+
+            for i in range(int(lastPageByPoster), 0, -1):
+                offset = (i - 1) * 5
+                caching.cached_posts(limit, offset, poster, True) #direct cached_posts to update cache
+
+            #update cache of pagination for all posts
+            allPosts = caching.cached_posts(None, 0, "")
+            lastPage = math.ceil(len(allPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
+
+            for i in range(int(lastPage), 0, -1):
+                offset = (i - 1) * 5
+                caching.cached_posts(limit, offset, "", True) #direct cached_posts to update cache
+
+
             blogID = "/post/%s" % str(post.key().id())
-            caching.POST_CACHE.clear() #clear cache
             self.redirect(blogID) #send you to view post page
         else:
             error = "Please enter both title and body!"
@@ -225,8 +255,8 @@ class Registration(Handler):
             user.put() #store post in database
             user_id = user.key().id()
             self.response.headers.add_header('Set-Cookie', 'user=%s' % hashing.make_secure_val(user_id)) #hash user id for use in cookie
-            caching.USER_BY_NAME_CACHE.clear() #clear cache
-            caching.USERNAME_CACHE.clear() #clear cache
+            caching.cached_user_by_name(username, True) #direct cached_posts to update cache
+            caching.cached_check_username(username, True) #direct cached_posts to update cache
             self.redirect('/welcome')
         else:
             self.render_reg(username, email, usernameError, passwordError, passVerifyError, emailError)
