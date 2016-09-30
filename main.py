@@ -102,6 +102,7 @@ class NewPost(Handler):
                 post.coords = coords #if we have coordinates, add them to the db entry
             post.put() #store post in database
 
+            """cache updating"""
             #update cache
             time.sleep(.1) #ewait 1/10 of a second while post is entered into db
             poster = caching.cached_user_by_name(post.author.username) #pulls the user from the db by name passed through the url
@@ -125,7 +126,7 @@ class NewPost(Handler):
             for i in range(int(lastPage), 0, -1):
                 offset = (i - 1) * 5
                 caching.cached_posts(limit, offset, "", True) #direct cached_posts to update cache
-
+            """end of cache updating"""
 
             blogID = "/post/%s" % str(post.key().id())
             self.redirect(blogID) #send you to view post page
