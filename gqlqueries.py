@@ -4,7 +4,7 @@ import logging
 
 
 def get_posts(limit=None, offset=0, user=""):
-    logging.error("DB QUERY")
+    logging.error("get_posts QUERY")
     if user:
         query = Blog.all().filter("author", user).order("-created") # .all() = "SELECT *"; .filter("author", user) = "author = user"; .order("-created") = "ORDER BY created DESC"
     else:
@@ -15,6 +15,7 @@ def get_posts(limit=None, offset=0, user=""):
     # return db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC") #table is named Blog because class is named Blog (the class creates the table)
 
 def get_user_by_name(usr):
+    logging.error("get_user_by_name QUERY")
     """ Get a user object from the db, based on their username """
     # user = db.GqlQuery("SELECT * FROM Users WHERE username = '%s'" % usr) #using %s in SQL queries is BAD, never do this
     user = Users.all().filter("username", usr) # .all() = "SELECT *"; .filter("username", usr) = "username = usr"

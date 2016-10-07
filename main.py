@@ -56,10 +56,10 @@ class PostList(Handler): # if u has value then posts will be displayed by user, 
             page = int(page)
         offset = (page - 1) * 5 #calculate where to start offset based on which page the user is on
 
-        blogs = caching.cached_posts(self.limit, offset, poster)
-        allPosts = caching.cached_posts(None, 0, poster)
+        blogs = caching.cached_posts(self.limit, offset, poster, u)
+        allPosts = caching.cached_posts(None, 0, poster, u)
         lastPage = math.ceil(len(allPosts) / float(self.limit)) #calculate the last page required based on the number of entries and entries displayed per page
-        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, u=u)
+        self.render("list.html", blogs=blogs, page=page, lastPage=lastPage, usr=usr, u=u, poster=poster)
 
     def get(self, u=""):
         page = self.request.get("page") #set url query string
@@ -106,26 +106,26 @@ class NewPost(Handler):
             #update cache
             time.sleep(.1) #ewait 1/10 of a second while post is entered into db
             poster = caching.cached_user_by_name(post.author.username) #pulls the user from the db by name passed through the url
-            caching.cached_posts(None, 0, poster, True) #direct cached_posts to update cache
-            caching.cached_posts(None, 0, "", True) #direct cached_posts to update cache
+            caching.cached_posts(None, 0, poster, usr, True) #direct cached_posts to update cache
+            caching.cached_posts(None, 0, "", "", True) #direct cached_posts to update cache
 
             limit = PostList.limit #number of entries displayed per page
 
             #update cache of pagination by user
-            allPostsByPoster = caching.cached_posts(None, 0, poster)
+            allPostsByPoster = caching.cached_posts(None, 0, poster, usr)
             lastPageByPoster = math.ceil(len(allPostsByPoster) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
 
             for i in range(int(lastPageByPoster), 0, -1):
                 offset = (i - 1) * 5
-                caching.cached_posts(limit, offset, poster, True) #direct cached_posts to update cache
+                caching.cached_posts(limit, offset, poster, usr, True) #direct cached_posts to update cache
 
             #update cache of pagination for all posts
-            allPosts = caching.cached_posts(None, 0, "")
+            allPosts = caching.cached_posts(None, 0, "", "")
             lastPage = math.ceil(len(allPosts) / float(limit)) #calculate the last page required based on the number of entries and entries displayed per page
 
             for i in range(int(lastPage), 0, -1):
                 offset = (i - 1) * 5
-                caching.cached_posts(limit, offset, "", True) #direct cached_posts to update cache
+                caching.cached_posts(limit, offset, "", "", True) #direct cached_posts to update cache
             """end of cache updating"""
 
             blogID = "/post/%s" % str(post.key().id())
@@ -139,7 +139,7 @@ class ModifyPost(Handler):
         c = self.request.cookies.get('user') #pull cookie value
         usr = hashing.get_user_from_cookie(c)
         poster = caching.cached_user_by_name(usr) #pulls the user from the db by name passed through the url
-        blogs = caching.cached_posts(None, 0, poster) #call get_posts to run GQL query
+        blogs = caching.cached_posts(None, 0, poster, usr) #call get_posts to run GQL query
         self.render("modify_post.html", blogs=blogs, usr=usr)
 
     def get(self):

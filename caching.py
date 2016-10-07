@@ -2,8 +2,8 @@ import gqlqueries
 from dbmodels import Users, Blog #import Users and Blog classes from python file named dbmodels
 from google.appengine.api import memcache
 
-def cached_posts(limit=None, offset=0, user="", update=False):
-    key = str(limit) + str(offset) + str(user)
+def cached_posts(limit=None, offset=0, user="", u="", update=False):
+    key = "%s,%d,%s" % (limit, offset, u)
     blogs = memcache.get(key)
     if blogs is None or update:
         blogs = gqlqueries.get_posts(limit, offset, user)
@@ -11,7 +11,7 @@ def cached_posts(limit=None, offset=0, user="", update=False):
     return blogs
 
 def cached_user_by_name(usr, update=False):
-    key = str(usr) + "getUser"
+    key = usr
     user = memcache.get(key)
     if user is None or update:
         user = gqlqueries.get_user_by_name(usr)
@@ -19,7 +19,7 @@ def cached_user_by_name(usr, update=False):
     return user
 
 def cached_check_username(username, update=False):
-    key = str(username) + "checkUsername"
+    key = username
     name = memcache.get(key)
     if name is None or update:
         name = gqlqueries.check_username(username)
